@@ -1,33 +1,36 @@
 #!/usr/bin/env bash
-# CI helper: gather the full compiler output and the real class/member names of
-# the Minecraft jar this build compiled against, so porting errors can be fixed
-# from facts instead of guesses. Output goes to ./ci-out.
+# CI helper: gather the real class/member names of every jar this build
+# compiled against (Minecraft client + shared code, Fabric API), so porting
+# errors can be fixed from facts instead of guesses. Output goes to ./ci-out.
 set -u
 mkdir -p ci-out
 
-# Find the Minecraft jar Loom downloaded (the one that contains Minecraft.class).
-JAR=""
-while IFS= read -r j; do
-  if unzip -l "$j" 2>/dev/null | grep -q "net/minecraft/client/Minecraft.class"; then JAR="$j"; break; fi
-done < <(find "$HOME/.gradle" -name '*.jar' -size +5M 2>/dev/null)
-echo "jar: $JAR" > ci-out/jar.txt
-[ -z "$JAR" ] && exit 0
+# Every Loom-produced Minecraft jar plus the Fabric API modules we use.
+mapfile -t JARS < <(find "$HOME/.gradle" \( -path '*fabric-loom*' -o -name 'fabric-rendering-v1*' -o -name 'fabric-key-binding-api*' -o -name 'fabric-lifecycle-events*' -o -name 'fabric-message-api*' -o -name 'fabric-api-base*' \) -name '*.jar' -size +20k 2>/dev/null | grep -v -- '-sources')
+printf '%s\n' "${JARS[@]}" > ci-out/jars.txt
+CP=$(IFS=:; echo "${JARS[*]}")
 
-unzip -l "$JAR" | awk '{print $4}' | grep '\.class$' | sed 's/\.class$//' | sort > ci-out/classes.txt
+: > ci-out/classes.txt
+for j in "${JARS[@]}"; do
+  unzip -l "$j" 2>/dev/null | awk '{print $4}' | grep '\.class$' | sed 's/\.class$//' >> ci-out/classes.txt
+done
+sort -u -o ci-out/classes.txt ci-out/classes.txt
 
-# Public API of every class the mod touches, resolved by simple name so a moved
-# package doesn't matter.
-NAMES="ClickType ContainerInput MultiPlayerGameMode InventoryMenu AbstractContainerMenu Slot ItemStackRenderState \
-SubmitNodeStorage SubmitNodeCollection ProjectionMatrixBuffer CachedOrthoProjectionMatrixBuffer ByteBufferBuilder Lighting \
-GpuTexture GpuTextureView GpuBuffer GpuDevice CommandEncoder RenderSystem TextureFormat ProjectionType ItemRenderer \
-OverlayTexture NativeImage ItemModelResolver MultiBufferSource GameRenderer PoseStack KeyMapping Options FormattedText \
-StringUtil ClientPacketListener MapColor Heightmap Level LevelChunk Mth SectionPos BlockPos ItemStack Inventory Player \
-FoodData LivingEntity Entity Gui ChatComponent BuiltInRegistries MenuType Identifier Resource ResourceManager \
-DimensionType MobEffects GameType Minecraft ClientLevel LocalPlayer HudElement ItemDisplayContext FoilType RenderPipelines \
-RenderType RenderTypes"
+NAMES="ContainerInput MultiPlayerGameMode InventoryMenu AbstractContainerMenu Slot ItemStackRenderState \
+SubmitNodeStorage SubmitNodeCollection SubmitNodeCollector OrderedSubmitNodeCollector ProjectionMatrixBuffer ByteBufferBuilder Lighting \
+GpuTexture GpuTextureView GpuBuffer GpuDevice CommandEncoder RenderSystem GpuFence RenderPass RenderPassDescriptor TextureFormat \
+ProjectionType ItemRenderer OverlayTexture NativeImage ItemModelResolver MultiBufferSource GameRenderer PoseStack KeyMapping \
+Options FormattedText StringUtil ClientPacketListener MapColor Heightmap Level LevelChunk Mth SectionPos BlockPos ItemStack \
+Inventory Player FoodData LivingEntity Entity Gui Hud ChatComponent BuiltInRegistries MenuType Identifier Resource \
+ResourceManager DimensionType MobEffects GameType Minecraft ClientLevel LocalPlayer HudElement HudElementRegistry \
+VanillaHudElements ItemDisplayContext RenderPipelines RenderType RenderTypes GuiGraphicsExtractor GuiRenderState GuiRenderer \
+GuiItemRenderState ItemQuads FeatureRenderDispatcher ItemFeatureRenderer CameraRenderState BufferBuilder MeshData \
+TextureManager DynamicTexture AbstractTexture RenderTarget TextureTarget MainTarget Window Screenshot Font \
+SimpleFeatureRenderPhase FeatureRenderPhase ItemSubmit TranslucentSubmit"
+: > ci-out/javap.txt
 for n in $NAMES; do
-  grep -E "(^|/)${n}\$|(^|/)${n}\\\$[A-Za-z]+\$" ci-out/classes.txt | head -5 | while read -r c; do
+  grep -E "(^|/)${n}\$|(^|/)${n}\\\$[A-Za-z0-9]+\$" ci-out/classes.txt | head -6 | while read -r c; do
     echo "=== $c" >> ci-out/javap.txt
-    javap -public -cp "$JAR" "$(echo "$c" | tr / .)" >> ci-out/javap.txt 2>&1
+    javap -public -cp "$CP" "$(echo "$c" | tr / .)" >> ci-out/javap.txt 2>&1
   done
 done
