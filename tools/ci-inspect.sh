@@ -34,3 +34,11 @@ for n in $NAMES; do
     javap -public -cp "$CP" "$(echo "$c" | tr / .)" >> ci-out/javap.txt 2>&1
   done
 done
+
+# Private members of the two classes our mixins reach into by name. A wrong
+# name compiles fine and only fails when the game loads the mixin.
+: > ci-out/private.txt
+for c in net.minecraft.client.KeyMapping com.mojang.blaze3d.platform.NativeImage; do
+  echo "=== $c" >> ci-out/private.txt
+  javap -private -cp "$CP" "$c" >> ci-out/private.txt 2>&1
+done
