@@ -96,14 +96,6 @@ to grant, and no game files to copy.
 Either order works — the app reconnects on its own, and survives the game being
 restarted under it.
 
-## Known limitation on Minecraft 26.x
-
-Item icons on the second screen come from each item's flat texture file. The
-isometric block icons the 1.21.11 version rendered offscreen are switched off,
-because Minecraft 26.x rebuilt the rendering internals that code relied on. Flat
-items look right; some blocks (stairs, logs and similar) may show no icon. The
-old renderer is kept in `docs/ItemIconRenderer.1.21.11.java.txt` for a future port.
-
 ## Troubleshooting
 
 | What you see | What it is |
