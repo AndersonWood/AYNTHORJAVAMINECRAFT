@@ -9,8 +9,6 @@ on: [pull_request, push]
 jobs:
   build:
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
@@ -19,37 +17,14 @@ jobs:
       - name: setup jdk
         uses: actions/setup-java@v5
         with:
-          # 21, matching the toolchain this project actually targets
-          # (build.gradle pins release/source/target to 21) and the JDK the
-          # README asks contributors to install. Building on 25 meant CI was
-          # exercising a compiler nobody develops against, so a failure there
-          # said nothing useful and a pass guaranteed nothing locally.
+          # 25, matching the toolchain this project targets on Minecraft 26.x
+          # (build.gradle pins release/source/target to 25).
           java-version: '25'
           distribution: 'microsoft'
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
       - name: build
-        id: build
-        continue-on-error: true
-        run: ./gradlew build --continue 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
-      - name: inspect and publish logs
-        if: always()
-        continue-on-error: true
-        run: |
-          mkdir -p ci-out
-          cp build.log ci-out/build.log 2>/dev/null || true
-          ./tools/ci-inspect.sh || true
-          git config --global user.name "ci"
-          git config --global user.email "ci@users.noreply.github.com"
-          rm -rf /tmp/ci-logs && cp -r ci-out /tmp/ci-logs
-          cd /tmp/ci-logs
-          echo "$GITHUB_SHA" > sha.txt
-          git init -q && git checkout -q -b ci-logs && git add -A
-          git commit -q -m "ci logs for $GITHUB_SHA"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" ci-logs
-      - name: fail if the build failed
-        if: steps.build.outcome == 'failure'
-        run: exit 1
+        run: ./gradlew build
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:
