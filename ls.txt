@@ -1,0 +1,19 @@
+/home/runner/.gradle/caches/fabric-loom:
+total 572
+drwxr-xr-x 5 runner runner   4096 Oct 16 13:03 .
+drwxr-xr-x 7 runner runner   4096 Oct 16 13:03 ..
+drwxr-xr-x 2 runner runner   4096 Oct 16 13:03 26.3
+drwxr-xr-x 2 runner runner 290816 Oct 16 13:05 decompile
+drwxr-xr-x 3 runner runner   4096 Oct 16 13:03 minecraftMaven
+-rw-r--r-- 1 runner runner 277821 Oct 16 13:03 mojang_versions_manifest.json
+
+/home/runner/.gradle/caches/fabric-loom/26.3:
+total 164400
+drwxr-xr-x 2 runner runner     4096 Oct 16 13:03 .
+drwxr-xr-x 5 runner runner     4096 Oct 16 13:03 ..
+-rw-r--r-- 1 runner runner 13219362 Oct 16 13:03 minecraft-client-only.jar
+-rw-r--r-- 1 runner runner 41483720 Oct 16 13:03 minecraft-client.jar
+-rw-r--r-- 1 runner runner 24634673 Oct 16 13:03 minecraft-common.jar
+-rw-r--r-- 1 runner runner 26652008 Oct 16 13:03 minecraft-extracted_server.jar
+-rw-r--r-- 1 runner runner 62294556 Oct 16 13:03 minecraft-server.jar
+-rw-r--r-- 1 runner runner    44992 Oct 16 13:03 mojang_minecraft_info.json

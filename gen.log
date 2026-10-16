@@ -1,0 +1,34 @@
+Fetching distribution.
+Downloading https://services.gradle.org/distributions/gradle-9.8.1-bin.zip
+..............10%..............20%...............30%..............40%...............50%..............60%...............70%..............80%...............90%..............100%
+
+Welcome to Gradle 9.8.1!
+
+Here are the highlights of this release:
+ - Java 27 support
+ - Maven mirror settings reuse
+ - Linked problem locations in build output
+
+For more details see https://docs.gradle.org/9.8.1/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.8.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Fabric Loom: 1.18.4
+
+> Task :validateAccessWidener NO-SOURCE
+
+> Task :genCommonSourcesWithVineflower
+Decompile cache stats: 0 hits, 5037 misses
+
+> Task :genCommonSources
+
+> Task :genClientOnlySourcesWithVineflower
+Decompile cache stats: 0 hits, 2264 misses
+
+> Task :genClientOnlySources
+> Task :genSources
+
+BUILD SUCCESSFUL in 2m 21s
+2 actionable tasks: 2 executed
