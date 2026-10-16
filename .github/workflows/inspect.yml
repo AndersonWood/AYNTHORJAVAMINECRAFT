@@ -1,0 +1,50 @@
+# Temporary: decompile Minecraft 26.3 and publish selected sources to the
+# ci-logs branch, so the icon renderer can be ported from the real code.
+name: inspect
+on:
+  push:
+    branches: [inspect]
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - run: chmod +x ./gradlew
+      - name: decompile
+        run: ./gradlew genSources --no-daemon > /tmp/gen.log 2>&1; tail -40 /tmp/gen.log
+      - name: publish selected sources
+        run: |
+          mkdir -p /tmp/out/src
+          cp /tmp/gen.log /tmp/out/gen.log
+          find "$HOME/.gradle" "$GITHUB_WORKSPACE" -iname '*sources*' -size +100k > /tmp/out/found.txt 2>&1
+          ls -la "$HOME/.gradle/caches/fabric-loom" "$HOME/.gradle/caches/fabric-loom/26.3" > /tmp/out/ls.txt 2>&1
+          for j in $(find "$HOME/.gradle" "$GITHUB_WORKSPACE/.gradle" -iname '*-sources.jar' -size +1M | grep -v 'loom-1'); do
+            echo "$j" >> /tmp/out/jars.txt
+            unzip -qo "$j" \
+              'net/minecraft/world/inventory/*' \
+              'net/minecraft/world/item/trading/*' \
+              'net/minecraft/world/item/enchantment/Enchantment.java' \
+              'net/minecraft/network/protocol/game/ServerboundSetBeaconPacket*' \
+              'net/minecraft/network/protocol/game/ServerboundSelectTradePacket*' \
+              'net/minecraft/network/protocol/game/ServerboundRenameItemPacket*' \
+              'net/minecraft/network/protocol/game/ServerboundContainerButtonClickPacket*' \
+              'net/minecraft/client/gui/screens/inventory/*' \
+              'net/minecraft/client/multiplayer/ClientPacketListener.java' \
+              'net/minecraft/client/multiplayer/MultiPlayerGameMode.java' \
+              'net/minecraft/world/level/block/entity/BeaconBlockEntity.java' \
+              'net/minecraft/world/effect/MobEffects.java' \
+              'net/minecraft/world/entity/player/Player.java' \
+              'net/minecraft/world/entity/player/Abilities.java' \
+              -d /tmp/out/src 2>/dev/null || true
+          done
+                    du -sh /tmp/out/src; find /tmp/out/src -type f | wc -l
+          git config --global user.name ci; git config --global user.email ci@users.noreply.github.com
+          cd /tmp/out && echo "$GITHUB_SHA" > sha.txt
+          git init -q && git checkout -q -b ci-logs && git add -A && git commit -q -m "decompiled sources for $GITHUB_SHA"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" ci-logs
