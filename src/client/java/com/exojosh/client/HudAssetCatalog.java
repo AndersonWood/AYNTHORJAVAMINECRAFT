@@ -113,6 +113,16 @@ public final class HudAssetCatalog {
         ASSETS.put("font_ascii", "textures/font/ascii.png");
         ASSETS.put("background", "textures/block/dirt.png");
         ASSETS.put("map_background", "textures/map/map_background.png");
+
+        // The alternative backdrops the app's Background picker offers
+        // (settings/HudBackground.kt). The keys must match its assetKey values
+        // exactly; dirt keeps the plain "background" key above. All are still,
+        // seamlessly tiling block textures with no .mcmeta animation.
+        for (String block : new String[] {
+                "stone", "cobblestone", "mossy_cobblestone", "stone_bricks",
+                "bricks", "sand", "oak_planks", "dark_oak_planks"}) {
+            ASSETS.put("background_" + block, "textures/block/" + block + ".png");
+        }
     }
 
     private HudAssetCatalog() {
