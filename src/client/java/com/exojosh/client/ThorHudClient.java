@@ -251,7 +251,7 @@ public class ThorHudClient implements ClientModInitializer {
         warnedAboutBindFailure = true;
 
         if (client.gui == null) return;
-        client.gui.getChat().addMessage(Component.literal(
+        client.gui.hud.getChat().addMessage(Component.literal(
                         "[Thor HUD] Port 48291 is in use, so the second screen can't connect. "
                                 + "A leftover 'adb reverse tcp:48291 tcp:48291' is the usual cause. "
                                 + "Clear it and this will reconnect on its own.")

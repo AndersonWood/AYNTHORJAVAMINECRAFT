@@ -137,7 +137,7 @@ public class CommandDispatcher {
         // their inventory -- ten taps of the drop key throwing ten stacks.
         // Dropping them is the honest behaviour: the game wouldn't have acted
         // on a real keypress at that moment either.
-        if (client.screen != null) {
+        if (client.gui.screen() != null) {
             System.out.println("[ThorHud] Ignoring command '" + code + "' -- a screen is open");
             return;
         }

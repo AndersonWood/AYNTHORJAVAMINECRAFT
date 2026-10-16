@@ -5,7 +5,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -189,12 +189,12 @@ public final class ContainerRelay {
         int syncId;
         int slotId;
         int button;
-        ClickType action;
+        ContainerInput action;
         try {
             syncId = Integer.parseInt(parts[0].trim());
             slotId = Integer.parseInt(parts[1].trim());
             button = Integer.parseInt(parts[2].trim());
-            action = ClickType.valueOf(parts[3].trim());
+            action = ContainerInput.valueOf(parts[3].trim());
         } catch (IllegalArgumentException e) {
             System.out.println("[ThorHud] Unparseable slot click '" + args + "': " + e);
             return;
@@ -213,7 +213,7 @@ public final class ContainerRelay {
             return;
         }
 
-        client.gameMode.handleInventoryMouseClick(handler.containerId, slotId, button, action, player);
+        client.gameMode.handleContainerInput(handler.containerId, slotId, button, action, player);
 
         // The click mutates the handler in place; re-send on the next tick
         // rather than waiting for the comparison to notice, so the second

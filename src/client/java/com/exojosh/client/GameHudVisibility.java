@@ -87,7 +87,7 @@ public final class GameHudVisibility {
             for (Identifier id : element.vanillaIds) {
                 HudElementRegistry.replaceElement(id, original -> (context, tickCounter) -> {
                     if (SHOWN_IN_GAME.contains(element)) {
-                        original.render(context, tickCounter);
+                        original.extractRenderState(context, tickCounter);
                     }
                 });
             }
