@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"package": "com.exojosh.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"KeyBindingAccessor",
+		"NativeImageInvoker"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

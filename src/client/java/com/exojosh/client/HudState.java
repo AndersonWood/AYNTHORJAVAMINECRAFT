@@ -1,0 +1,140 @@
+package com.exojosh.client;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Plain data snapshot of the HUD elements we hid. Gson turns this straight
+ * into JSON -- keep it a flat, boring record so the wire format stays simple
+ * for whatever renders it on the second screen.
+ *
+ * air/maxAir drive the breathing bubbles. Both are sent raw (air is in
+ * ticks, maxAir is 300 for an unenchanted player but Respiration and status
+ * effects change it) rather than pre-reduced to a bubble count, so the
+ * companion app can apply vanilla's own rounding and we don't bake a HUD
+ * decision into the wire format. Vanilla hides the bubbles entirely unless
+ * air &lt; maxAir; the app makes that call.
+ */
+public record HudState(
+        float health,
+        float maxHealth,
+        /** Extra "golden heart" health from absorption effects, on top of
+         *  health/maxHealth. Zero most of the time. */
+        float absorption,
+        int armor,
+        int food,
+        int xpLevel,
+        float xpProgress,
+        int selectedSlot,
+        int air,
+        int maxAir,
+        /**
+         * The game mode's own name ({@code SURVIVAL}, {@code CREATIVE},
+         * {@code ADVENTURE}, {@code SPECTATOR}), or null against a world that
+         * hasn't reported one yet.
+         *
+         * Sent raw rather than reduced to "should the status bars show" for the
+         * same reason air is: the HUD decision belongs to whatever is drawing
+         * the HUD. Vanilla's own rule is {@code interactionManager.hasStatusBars()},
+         * i.e. survival or adventure.
+         */
+        String gameMode,
+        /**
+         * Which set of heart sprites to draw, from
+         * {@code InGameHud.HeartType.fromPlayerState}: NORMAL, POISONED,
+         * WITHERED or FROZEN, in that precedence.
+         */
+        String heartType,
+        /** Hardcore worlds use a different rim on every heart sprite. */
+        boolean hardcore,
+        List<HotbarSlot> hotbar,
+        /** The off-hand stack, in the same shape as a hotbar slot. Always
+         *  present -- an empty off-hand is sent as a minecraft:air slot rather
+         *  than omitted, because the app draws the box either way (vanilla
+         *  hides it when empty; the second screen keeps it as a tap target for
+         *  swapping into). */
+        HotbarSlot offhand
+) {
+    /**
+     * damage/maxDamage are both 0 for non-damageable items (blocks, most
+     * misc items) -- the companion app should treat that as "no durability
+     * bar to draw," not "fully worn." hasGlint mirrors vanilla's enchantment
+     * shimmer, true for enchanted items AND a few unenchanted-but-glinting
+     * ones like written books.
+     *
+     * NOTE: isDamageableItem()/getDamageValue()/getMaxDamage()/hasFoil() are my best
+     * recollection of the Mojang-mapped method names (ported from Yarn) -- verify with
+     * Ctrl+Space on an ItemStack instance before trusting these compile,
+     * same as every other vanilla API guess this session.
+     */
+    public record HotbarSlot(
+            String itemId,
+            int count,
+            int damage,
+            int maxDamage,
+            boolean hasGlint
+    ) {}
+
+    /**
+     * Which heart sprite set applies, following
+     * {@code InGameHud.HeartType.fromPlayerState} — including its precedence,
+     * which is poison over wither over freezing rather than any combination.
+     */
+    public static String heartTypeOf(Player player) {
+        if (player.hasEffect(MobEffects.POISON)) return "POISONED";
+        if (player.hasEffect(MobEffects.WITHER)) return "WITHERED";
+        if (player.isFullyFrozen()) return "FROZEN";
+        return "NORMAL";
+    }
+
+    /** The current game mode's name, or null before one is known. */
+    public static String gameModeOf(Minecraft client) {
+        if (client.gameMode == null) return null;
+        return client.gameMode.getPlayerMode().name();
+    }
+
+    /** Whether this is a hardcore world, which changes every heart sprite. */
+    public static boolean isHardcore(Player player) {
+        return player.level().getLevelData().isHardcore();
+    }
+
+    public static List<HotbarSlot> hotbarFromInventory(Player player) {
+        List<HotbarSlot> slots = new ArrayList<>(9);
+        for (int i = 0; i < 9; i++) {
+            slots.add(slotFrom(player.getInventory().getItem(i)));
+        }
+        return slots;
+    }
+
+    /**
+     * The off-hand stack, described exactly like a hotbar slot so the app can
+     * render it with the same code path -- it's the same 16x16 icon with the
+     * same count/durability/glint decorations, just in a box of its own.
+     */
+    public static HotbarSlot offhandFrom(Player player) {
+        return slotFrom(player.getOffhandItem());
+    }
+
+    /**
+     * One stack in the shape the app renders. Public because
+     * {@link ContainerRelay} describes inventory slots with exactly the same
+     * record — same 16x16 icon, same count/durability/glint decorations — so
+     * the app draws both with one code path.
+     */
+    public static HotbarSlot slotFrom(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return new HotbarSlot("minecraft:air", 0, 0, 0, false);
+        }
+        String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+        boolean damageable = stack.isDamageableItem();
+        int damage = damageable ? stack.getDamageValue() : 0;
+        int maxDamage = damageable ? stack.getMaxDamage() : 0;
+        return new HotbarSlot(id, stack.getCount(), damage, maxDamage, stack.hasFoil());
+    }
+}
