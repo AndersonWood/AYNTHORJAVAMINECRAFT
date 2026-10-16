@@ -5,8 +5,10 @@ import net.minecraft.resources.Identifier;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -118,6 +120,13 @@ public final class HudAssetCatalog {
         // (settings/HudBackground.kt). The keys must match its assetKey values
         // exactly; dirt keeps the plain "background" key above. All are still,
         // seamlessly tiling block textures with no .mcmeta animation.
+        // The six effects a beacon can offer, drawn as its picker's icons
+        // (the app looks them up as "mob_effect_<name>").
+        for (String effect : new String[] {
+                "speed", "haste", "resistance", "jump_boost", "strength", "regeneration"}) {
+            ASSETS.put("mob_effect_" + effect, "textures/mob_effect/" + effect + ".png");
+        }
+
         for (String block : new String[] {
                 "stone", "cobblestone", "mossy_cobblestone", "stone_bricks",
                 "bricks", "sand", "oak_planks", "dark_oak_planks"}) {
@@ -128,9 +137,60 @@ public final class HudAssetCatalog {
     private HudAssetCatalog() {
     }
 
+    /**
+     * Container sprites the app asks for by the game's own sprite id: slot
+     * placeholders and the furnace / brewing stand progress art.
+     *
+     * <h2>Why these are discovered rather than listed</h2>
+     * They are named by the <em>game</em> at runtime -- the mod reports whatever
+     * {@code Slot.getNoItemIcon()} returns -- so any fixed list is only ever what
+     * someone thought to enumerate, and goes stale the day a version adds a slot
+     * placeholder. Listing the folders asks the resource manager instead, which
+     * also means a resource pack's extra sprites come through.
+     *
+     * The key is the sprite path with its slashes flattened
+     * ({@code container/slot/helmet} becomes {@code container_slot_helmet}), which
+     * is the rule the app applies to a sprite id it is handed.
+     */
+    private static final String[] SPRITE_FOLDERS = {
+            "container/slot",
+            "container/furnace",
+            "container/blast_furnace",
+            "container/smoker",
+            "container/brewing_stand",
+    };
+
+    private static final String SPRITE_ROOT = "textures/gui/sprites/";
+
+    /** Rebuilt on every {@link #keys()} call, so a changed resource pack is
+     *  picked up by the app's {@code ASSETS} re-request. */
+    private static final Map<String, String> DISCOVERED = new LinkedHashMap<>();
+
+    private static void discoverSprites() {
+        DISCOVERED.clear();
+        try {
+            var manager = Minecraft.getInstance().getResourceManager();
+            for (String folder : SPRITE_FOLDERS) {
+                var found = manager.listResources(SPRITE_ROOT + folder, id -> id.getPath().endsWith(".png"));
+                for (Identifier id : found.keySet()) {
+                    String path = id.getPath();
+                    String sprite = path.substring(SPRITE_ROOT.length(), path.length() - ".png".length());
+                    DISCOVERED.put(sprite.replace('/', '_'), path);
+                }
+            }
+        } catch (RuntimeException e) {
+            System.out.println("[ThorHud] Could not list container sprites: " + e.getMessage());
+        }
+    }
+
     /** Every key this catalog knows about, in a stable order. */
     public static Iterable<String> keys() {
-        return ASSETS.keySet();
+        discoverSprites();
+        List<String> all = new ArrayList<>(ASSETS.keySet());
+        for (String key : DISCOVERED.keySet()) {
+            if (!ASSETS.containsKey(key)) all.add(key);
+        }
+        return all;
     }
 
     /**
@@ -140,11 +200,18 @@ public final class HudAssetCatalog {
      */
     public static Optional<String> resolveBase64Png(String key) {
         String path = ASSETS.get(key);
+        if (path == null) path = DISCOVERED.get(key);
         if (path == null) return Optional.empty();
 
         try {
             Identifier texture = Identifier.withDefaultNamespace(path);
             var resourceOpt = Minecraft.getInstance().getResourceManager().getResource(texture);
+            if (resourceOpt.isEmpty() && path.startsWith("textures/mob_effect/")) {
+                // Newer versions may keep effect icons with the GUI sprites.
+                resourceOpt = Minecraft.getInstance().getResourceManager().getResource(
+                        Identifier.withDefaultNamespace("textures/gui/sprites/mob_effect/"
+                                + path.substring("textures/mob_effect/".length())));
+            }
             if (resourceOpt.isEmpty()) {
                 System.out.println("[ThorHud] No resource for HUD asset " + key + " (" + path + ")");
                 return Optional.empty();

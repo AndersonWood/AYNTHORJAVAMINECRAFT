@@ -186,6 +186,10 @@ public class ThorHudClient implements ClientModInitializer {
                 // than chat: a slot click is only meaningful *while* a screen
                 // is open, which is exactly when the dispatcher drops things.
                 ContainerRelay.click(client, incoming.substring(ContainerRelay.CLICK_PREFIX.length()));
+            } else if (ContainerExtras.handle(client, incoming)) {
+                // BUTTON:/TRADE:/BEACON:/RENAME: -- container controls, handled
+                // for the same reason as slot clicks: they only mean anything
+                // while a screen is open.
             } else {
                 CommandDispatcher.dispatch(incoming);
             }

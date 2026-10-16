@@ -1,6 +1,9 @@
 package com.exojosh.client;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
@@ -65,7 +68,22 @@ public final class ContainerRelay {
      * grey out a furnace's output or an armor slot that won't take a sword,
      * rather than letting the player make a move the server will reject.
      */
-    public record SlotState(HudState.HotbarSlot stack, boolean mayPlace) {
+    public record SlotState(
+            HudState.HotbarSlot stack,
+            boolean mayPlace,
+            /** Vanilla's own GUI coordinates for the slot's 16x16 item area, so
+             *  the app can draw a furnace as a furnace rather than as a row. */
+            int x,
+            int y,
+            /** Sprite id of the empty-slot placeholder (the sword outline in a
+             *  grindstone, the flame in a brewing stand). Null -- and therefore
+             *  omitted -- for the great majority of slots. */
+            String background,
+            /** Sent only when true (null otherwise, which Gson omits): "enabled"
+             *  is the default and 46 fields saying so would be the expensive
+             *  encoding. */
+            Boolean disabled
+    ) {
     }
 
     public record ScreenHandlerState(
@@ -74,6 +92,17 @@ public final class ContainerRelay {
             /** Registry id of the open container, or null for the player's own
              *  inventory — which has no type at all (see {@link #handlerTypeOf}). */
             String handlerType,
+            /** The open screen's own title ("Furnace", or a renamed chest's name).
+             *  Null for the player's own handler, which is current both with the
+             *  inventory open and with nothing open, so a title would flip on
+             *  every tap of E and re-broadcast 46 slots for a header that never
+             *  changed. */
+            String title,
+            /** Whether the game actually has this handler's screen open. */
+            boolean screenOpen,
+            /** Whether that screen is the creative inventory, which otherwise
+             *  looks exactly like a modded container built without a type. */
+            boolean creativeScreen,
             /** What's "on the mouse". Empty most of the time; non-empty means a
              *  move is half-finished and the app must show it, or the player
              *  has no way to know where their item went. */
@@ -85,7 +114,9 @@ public final class ContainerRelay {
              *  player's own inventory. */
             int armorStart,
             /** -1 for the same reason. */
-            int offhandIndex
+            int offhandIndex,
+            ContainerExtras.Progress progress,
+            ContainerExtras.Extras extras
     ) {
     }
 
@@ -103,7 +134,7 @@ public final class ContainerRelay {
         Player player = client.player;
         if (player == null) return;
 
-        ScreenHandlerState state = capture(player);
+        ScreenHandlerState state = capture(client, player);
         if (state.equals(lastSent)) return;
 
         lastSent = state;
@@ -115,7 +146,7 @@ public final class ContainerRelay {
         return lastSent;
     }
 
-    private static ScreenHandlerState capture(Player player) {
+    private static ScreenHandlerState capture(Minecraft client, Player player) {
         AbstractContainerMenu handler = player.containerMenu;
         int size = handler.slots.size();
 
@@ -128,21 +159,43 @@ public final class ContainerRelay {
 
         List<SlotState> slots = new ArrayList<>(size);
         for (Slot slot : handler.slots) {
-            slots.add(new SlotState(HudState.slotFrom(slot.getItem()), slot.mayPlace(cursor)));
+            Identifier icon = slot.getNoItemIcon();
+            slots.add(new SlotState(
+                    HudState.slotFrom(slot.getItem()),
+                    slot.mayPlace(cursor),
+                    slot.x,
+                    slot.y,
+                    icon == null ? null : icon.toString(),
+                    slot.isActive() ? null : Boolean.TRUE));
         }
 
         boolean isPlayerInventory = handler instanceof InventoryMenu;
+
+        Screen screen = client.gui.screen();
+        boolean screenOpen = screen instanceof AbstractContainerScreen<?>;
+        boolean creative = screen instanceof CreativeModeInventoryScreen;
+        String title = null;
+        if (!isPlayerInventory && screen instanceof AbstractContainerScreen<?> containerScreen
+                && containerScreen.getMenu() == handler) {
+            title = containerScreen.getTitle().getString();
+            if (title.isEmpty()) title = null;
+        }
 
         return new ScreenHandlerState(
                 "container",
                 handler.containerId,
                 handlerTypeOf(handler, isPlayerInventory),
+                title,
+                screenOpen,
+                creative,
                 HudState.slotFrom(cursor),
                 slots,
                 isPlayerInventory ? InventoryMenu.INV_SLOT_START : Math.max(0, size - 36),
                 isPlayerInventory ? InventoryMenu.USE_ROW_SLOT_START : Math.max(0, size - 9),
                 isPlayerInventory ? InventoryMenu.ARMOR_SLOT_START : -1,
-                isPlayerInventory ? InventoryMenu.SHIELD_SLOT : -1
+                isPlayerInventory ? InventoryMenu.SHIELD_SLOT : -1,
+                ContainerExtras.progressOf(handler),
+                ContainerExtras.extrasOf(client, player, handler)
         );
     }
 
